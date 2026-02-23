@@ -1,0 +1,30 @@
+{
+  "source_extensions": {
+    "fpga": [".v", ".vhd", ".sv", ".qsf", ".xdc", ".pcf", ".cst"],
+    "software": [".c", ".cpp", ".asm", ".s"]
+  },
+  "binary_extensions": [".nes", ".rbf", ".gbc", ".gba", ".gb", ".bit", ".bin", ".sof", ".pof"],
+  "platform_toolchain": {
+    "Analogue Pocket": { "toolchain": "quartus", "device": "MAX10", "family": "max10" },
+    "Cyclone V":       { "toolchain": "quartus", "device": "5CSEBA6U23I7", "family": "cyclonev" },
+    "MiSTer":          { "toolchain": "quartus", "device": "5CSEBA6U23I7", "family": "cyclonev" },
+    "Chromatic":       { "toolchain": "quartus", "device": "5CSEBA6U23I7", "family": "cyclonev" },
+    "DE10-Lite":       { "toolchain": "quartus", "device": "10M50DAF484C7G", "family": "max10" },
+    "Basys 3":         { "toolchain": "vivado",  "device": "xc7a35tcpg236-1", "family": "artix7" },
+    "Arty A7":         { "toolchain": "vivado",  "device": "xc7a35ticsg324-1L", "family": "artix7" },
+    "Nexys A7":        { "toolchain": "vivado",  "device": "xc7a100tcsg324-1", "family": "artix7" },
+    "GameBub":         { "toolchain": "vivado",  "device": "xc7a100tfgg484-1", "family": "artix7" },
+    "iCEstick":        { "toolchain": "icestorm", "device": "hx1k", "package": "tq144" },
+    "TinyFPGA BX":     { "toolchain": "icestorm", "device": "lp8k", "package": "cm81" },
+    "OrangeCrab":      { "toolchain": "icestorm", "device": "25F", "package": "CSFBGA285" },
+    "Tang Nano 9K":    { "toolchain": "nextpnr-gowin", "device": "GW1NR-9C", "package": "QFN88P" },
+    "Tang Nano 20K":   { "toolchain": "nextpnr-gowin", "device": "GW2AR-18C", "package": "QFN88P" },
+    "Tang Nano 25K":   { "toolchain": "nextpnr-gowin", "device": "GW5A-25A", "package": "MBGA121N" }
+  },
+  "toolchain_versions": {
+    "quartus": "25.1std",
+    "vivado":  "2025.2",
+    "icestorm": "latest",
+    "nextpnr-gowin": "latest"
+  }
+}

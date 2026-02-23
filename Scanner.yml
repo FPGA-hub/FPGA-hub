@@ -1,0 +1,87 @@
+name: Scan New Repos
+
+on:
+  repository_dispatch:
+    types: [new-core-uploaded]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get install -y jq
+
+      - name: Scan repos and trigger compiles
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          # Load allowed source extensions from JSON
+          FPGA_EXTS=$(jq -r '.source_extensions.fpga[]' compile-triggers.json | tr '\n' '|' | sed 's/\./\\./g' | sed 's/|$//')
+          SW_EXTS=$(jq -r '.source_extensions.software[]' compile-triggers.json | tr '\n' '|' | sed 's/\./\\./g' | sed 's/|$//')
+          BINARY_EXTS=$(jq -r '.binary_extensions[]' compile-triggers.json | tr '\n' '|' | sed 's/\./\\./g' | sed 's/|$//')
+
+          echo "FPGA extensions: $FPGA_EXTS"
+          echo "Software extensions: $SW_EXTS"
+
+          # Get all repos in FPGA-hub org, newest first
+          gh repo list FPGA-hub --json name,createdAt --limit 200 --order asc | \
+          jq -r '.[].name' | while read repo; do
+
+            # Skip the main hub repo itself
+            if [ "$repo" = "FPGA-hub" ]; then continue; fi
+
+            echo "Scanning: $repo"
+
+            # Get file tree from main branch
+            TREE=$(gh api repos/FPGA-hub/$repo/git/trees/main --jq '.tree[].path' 2>/dev/null)
+            if [ -z "$TREE" ]; then
+              echo "  Skipping $repo — no main branch yet"
+              continue
+            fi
+
+            # Check for a core.json marker (uploaded by our system)
+            HAS_MARKER=$(echo "$TREE" | grep -c "core.json" || true)
+            if [ "$HAS_MARKER" -eq 0 ]; then
+              echo "  Skipping $repo — not an FPGA-hub upload"
+              continue
+            fi
+
+            # Check if already compiled (has a release)
+            HAS_RELEASE=$(gh release list --repo FPGA-hub/$repo --limit 1 2>/dev/null | wc -l)
+            if [ "$HAS_RELEASE" -gt 0 ]; then
+              echo "  Skipping $repo — already has a release"
+              continue
+            fi
+
+            # Find source files
+            SOURCE_FILE=$(echo "$TREE" | grep -E "($FPGA_EXTS|$SW_EXTS)$" | head -1)
+
+            if [ -n "$SOURCE_FILE" ]; then
+              EXT=".${SOURCE_FILE##*.}"
+              echo "  Found source file: $SOURCE_FILE"
+
+              # Determine type
+              IS_FPGA=$(jq -r --arg e "$EXT" '.source_extensions.fpga[] | select(. == $e)' compile-triggers.json)
+
+              if [ -n "$IS_FPGA" ]; then
+                TYPE="fpga"
+              else
+                TYPE="software"
+              fi
+
+              # Trigger compile workflow
+              gh workflow run compile.yml \
+                --repo FPGA-Hub/FPGA-hub \
+                -f target_repo="$repo" \
+                -f source_file="$SOURCE_FILE" \
+                -f source_type="$TYPE"
+
+              echo "  Triggered compile for $repo ($TYPE)"
+            else
+              echo "  No source files found in $repo"
+            fi
+
+          done

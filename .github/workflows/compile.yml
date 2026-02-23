@@ -1,0 +1,57 @@
+name: Compile Core
+on:
+  workflow_dispatch:
+    inputs:
+      target_repo:
+        required: true
+      source_file:
+        required: true
+      source_type:
+        required: true
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+        with:
+          repository: FPGA-hub/${{ inputs.target_repo }}
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Read platform from core.json
+        id: meta
+        run: |
+          PLATFORM=$(jq -r '.platforms[0]' core.json)
+          TOOLCHAIN=$(jq -r --arg p "$PLATFORM" '.platform_toolchain[$p].toolchain' compile-triggers.json)
+          DEVICE=$(jq -r --arg p "$PLATFORM" '.platform_toolchain[$p].device' compile-triggers.json)
+          echo "platform=$PLATFORM" >> $GITHUB_OUTPUT
+          echo "toolchain=$TOOLCHAIN" >> $GITHUB_OUTPUT
+          echo "device=$DEVICE" >> $GITHUB_OUTPUT
+
+      # ── ICESTORM ──────────────────────────────────────────
+      - name: Install IceStorm toolchain
+        if: steps.meta.outputs.toolchain == 'icestorm'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y yosys nextpnr-ice40 icestorm
+
+      - name: Compile (IceStorm)
+        if: steps.meta.outputs.toolchain == 'icestorm'
+        run: |
+          PCF=$(find . -name "*.pcf" | head -1)
+          yosys -p "synth_ice40 -top top -json out.json" ${{ inputs.source_file }}
+          nextpnr-ice40 --${{ steps.meta.outputs.device }} --json out.json --pcf $PCF --asc out.asc
+          icepack out.asc output.bin
+
+      # ── GOWIN (nextpnr) ───────────────────────────────────
+      - name: Install GoWin toolchain
+        if: steps.meta.outputs.toolchain == 'nextpnr-gowin'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y yosys
+          pip install apycula --break-system-packages
+
+      - name: Compile (GoWin)
+        if: steps.meta.outputs.toolchain == 'nextpnr-gowin'
+        run
